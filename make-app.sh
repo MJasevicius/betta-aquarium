@@ -8,8 +8,11 @@
 set -e
 cd "$(dirname "$0")"
 
-swift build -c release
-BIN="$(swift build -c release --show-bin-path)/BettaAquarium"
+# UNIVERSAL=1: for Apple silicon and Intel both; INSTALL=0: only build it, into dist/
+ARCHS=()
+[[ -n "$UNIVERSAL" ]] && ARCHS=(--arch arm64 --arch x86_64)
+swift build -c release $ARCHS
+BIN="$(swift build -c release $ARCHS --show-bin-path)/BettaAquarium"
 NAME="Betta Aquarium"
 APP="dist/$NAME.app"
 
@@ -53,10 +56,19 @@ SAVER="dist/$NAME.saver"
 rm -rf "$SAVER"
 mkdir -p "$SAVER/Contents/MacOS"
 S=Sources/BettaAquarium
-swiftc -Ounchecked -module-name BettaSaver -emit-library -o "$SAVER/Contents/MacOS/BettaSaver" \
-    $S/Fish.swift $S/Tables.swift $S/Motion.swift $S/Betta.swift $S/Tank.swift $S/Renderer.swift $S/Scenery.swift \
-    $S/Life.swift $S/Settings.swift $S/Weather.swift $S/Lighting.swift Saver/SaverView.swift \
-    -framework ScreenSaver -framework MetalKit
+SAVER_SOURCES=($S/Fish.swift $S/Tables.swift $S/Motion.swift $S/Betta.swift $S/Tank.swift $S/Renderer.swift $S/Scenery.swift
+    $S/Life.swift $S/Settings.swift $S/Weather.swift $S/Lighting.swift Saver/SaverView.swift)
+if [[ -n "$UNIVERSAL" ]]; then
+    for arch in arm64 x86_64; do
+        swiftc -Ounchecked -target $arch-apple-macos14.0 -module-name BettaSaver -emit-library -o "dist/BettaSaver-$arch" \
+            $SAVER_SOURCES -framework ScreenSaver -framework MetalKit
+    done
+    lipo -create dist/BettaSaver-arm64 dist/BettaSaver-x86_64 -output "$SAVER/Contents/MacOS/BettaSaver"
+    rm dist/BettaSaver-arm64 dist/BettaSaver-x86_64
+else
+    swiftc -Ounchecked -module-name BettaSaver -emit-library -o "$SAVER/Contents/MacOS/BettaSaver" \
+        $SAVER_SOURCES -framework ScreenSaver -framework MetalKit
+fi
 cat > "$SAVER/Contents/Info.plist" <<EOF2
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -78,6 +90,8 @@ codesign --force --sign - "$SAVER" 2>/dev/null
 cp -R "$SAVER" "$APP/Contents/Resources/"
 
 codesign --force --sign - "$APP" 2>/dev/null
+
+[[ "$INSTALL" == 0 ]] && { echo "Built $APP"; exit 0; }
 
 mkdir -p ~/Applications
 rm -rf ~/Applications/"$NAME.app"

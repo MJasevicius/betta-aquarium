@@ -10,7 +10,38 @@ a card for each fish, seven environments, a night light, the weather where you a
 and a settings window where every value can be anything, with an ⓘ beside each setting saying what
 it does.
 
-## Install
+| The fish drawing itself | A juvenile, a young adult and an adult |
+|---|---|
+| ![The fish drawing itself](media/drawing.gif) | ![Three ages](media/ages.gif) |
+
+**▶ [Watch the demo](https://github.com/MJasevicius/betta-aquarium/releases/latest/download/betta-aquarium-demo.mp4)**
+(40 seconds: two fish draw themselves, swim, are fed, and the glass is tapped)
+
+![Every environment, and the night light](media/environments.png)
+
+| A fish's card | Upset after taps on the glass: pale, barred, hiding |
+|---|---|
+| ![A fish's card](media/card.png) | ![Stressed fish hiding in the cave](media/stressed.png) |
+
+| Settings ▸ Fish | Settings ▸ Water and Light |
+|---|---|
+| ![Settings: a fish](media/settings-fish.png) | ![Settings: water and light](media/settings-water.png) |
+
+## Download
+
+Get **betta-aquarium-macos.zip** from the [latest release](https://github.com/MJasevicius/betta-aquarium/releases/latest),
+unzip it, and move **Betta Aquarium.app** to Applications. It runs on Apple silicon and Intel Macs with macOS
+14 or later.
+
+It isn't notarized by Apple (that takes a paid developer account), so the first time, macOS won't
+open it. Either try to open it once, then go to **System Settings ▸ Privacy & Security** and click
+**Open Anyway**; or, in Terminal:
+
+```
+xattr -dr com.apple.quarantine "/Applications/Betta Aquarium.app"
+```
+
+## Build it yourself
 
 ```
 git clone https://github.com/MJasevicius/betta-aquarium
@@ -139,6 +170,10 @@ $B --selftest                                # feeding times, the sun, growing u
 $B --ui DIR                                  # the settings window's pages, to PNGs
 $B --dump 2.5 FILE                           # raw 113 x 103 grid, for diffing with the Python
 $B --icon FILE                               # the app icon
+$B --video FILE --seconds 40 [as --snap]      # an MP4 of the tank (--from S to start later, --width W)
+$B --gif FILE --seconds 8 --fps 15 [as --snap] # an animated GIF
+tools/make-media.sh                          # the README's pictures (media/) and the demo video (dist/)
+tools/release.sh                             # the app for Apple silicon and Intel, zipped for a release (dist/)
 python tools/compare.py                      # the first seconds against the Python, cell for cell*
 ```
 

@@ -26,7 +26,8 @@ enum Reaction: Int, Codable, CaseIterable {
 
 final class Settings: ObservableObject {
     static let shared = Settings()
-    private let store = UserDefaults(suiteName: "io.github.mjasevicius.betta-aquarium") ?? .standard
+    /// the app's own defaults; the tools (and the screen saver) name them
+    private var store: UserDefaults = Bundle.main.bundleIdentifier == "io.github.mjasevicius.betta-aquarium" ? .standard : UserDefaults(suiteName: "io.github.mjasevicius.betta-aquarium") ?? .standard
     var onChange: ((String) -> Void)?                // told which setting changed
 
     private func get<T>(_ key: String, _ fallback: T) -> T { store.object(forKey: key) as? T ?? fallback }
@@ -175,6 +176,14 @@ final class Settings: ObservableObject {
     var pauseLowPower: Bool { get { get("pauseLowPower", true) } set { set("pauseLowPower", newValue) } }
     /// not remembered: a paused fish wakes up again with the next launch
     var paused = false { didSet { objectWillChange.send(); onChange?("paused") } }
+
+    /// for pictures of the settings window: made-up settings, kept apart from yours, and forgotten after
+    func useDemo(_ values: [String: Any]) {
+        let name = "io.github.mjasevicius.betta-aquarium.demo"
+        UserDefaults().removePersistentDomain(forName: name)
+        store = UserDefaults(suiteName: name) ?? .standard
+        for (k, v) in values { store.set(v, forKey: k) }
+    }
 
     /// the screen saver: the app's settings, as read from its file (a screen saver has defaults of its own)
     func adopt(_ dict: [String: Any]) { store.register(defaults: dict) }

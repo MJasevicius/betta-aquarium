@@ -208,8 +208,8 @@ func save(_ image: CGImage, _ path: String) {
     try! NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
 }
 
-func snap(_ frames: Set<Int>, _ dir: String, scale: Int) {
-    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+/// the tank, how it is drawn, and what happens in it, as the tools' options say
+func toolScene() -> (Tank, (Renderer) -> Void, (Int) -> Void) {
     // --env ID (or --seabed: sand and plants), --surface, --company, --vignette as in the menu; --rays K, --caustics K, --dawn K, --night K;
     // --feed N drops pellets at frame N, --tap N taps the glass near the first fish at frame N
     let tank = toolTank()
@@ -218,18 +218,45 @@ func snap(_ frames: Set<Int>, _ dir: String, scale: Int) {
     mood.night = Double(arg("--night") ?? "0") ?? 0
     tank.surroundings.mood = mood
     let feedAt = arg("--feed").flatMap(Int.init), tapAt = arg("--tap").flatMap(Int.init)
-    let screens = Array(0..<tank.layout.screens.count)
-    render(tank, frames: frames, scale: scale, screens: screens, setup: { r in
+    let setup: (Renderer) -> Void = { r in
         r.rays = Float(arg("--rays") ?? "0") ?? 0
         r.caustics = Float(arg("--caustics") ?? "0") ?? 0
         r.dawn = Float(arg("--dawn") ?? "0") ?? 0
         r.brightness = Float(1 - 0.45 * mood.night)
         r.vignette = flag("--vignette") ? 1 : 0
         r.tint = tank.environment?.tint ?? V3(1, 1, 1)
-    }, before: { n in
+        if flag("--nightlight") {
+            // the soft blue moonlight, as the app has it at night
+            r.tint *= V3(0.74, 0.86, 1.14)
+            r.rayTint = V3(0.38, 0.48, 0.85)
+            r.brightness = Float(1 - 0.45 * mood.night * 0.45)
+        }
+    }
+    let before: (Int) -> Void = { n in
         if n == feedAt { tank.feed() }
         if n == tapAt, let b = tank.bettas.first { tank.tap(at: b.anchor + P2(0.6, 0.2), screen: 0) }
-    }) { n, i, image in
+    }
+    return (tank, setup, before)
+}
+
+func snap(_ frames: Set<Int>, _ dir: String, scale: Int) {
+    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    let (tank, setup, before) = toolScene()
+    let screens = Array(0..<tank.layout.screens.count)
+    render(tank, frames: frames, scale: scale, screens: screens, setup: setup, before: before) { n, i, frame in
+        var image = frame
+        if flag("--card"), let b = tank.bettas.first, let card = Card.picture(Card.info(for: b, tank: tank, settings: .shared)) {
+            // its card beside the first fish, as if the pointer rested on it
+            let ctx = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+                                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            ctx.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            let fx = Double(b.centreX) / Double(tank.cols) * Double(image.width)
+            let fy = Double(image.height) - Double(b.centreY) / Double(tank.rows) * Double(image.height)
+            let w = Double(card.width) * Double(image.width) / 2478, h = Double(card.height) * Double(image.width) / 2478
+            let x = min(fx + Double(image.width) * 0.13, Double(image.width) - w - 20)
+            ctx.draw(card, in: CGRect(x: x, y: max(fy - h * 0.5, 20), width: w, height: h))
+            image = ctx.makeImage()!
+        }
         let name = screens.count > 1 ? String(format: "swift_%05d_s%d.png", n, i) : String(format: "swift_%05d.png", n)
         let path = URL(fileURLWithPath: dir).appendingPathComponent(name).path
         save(image, path)
@@ -311,11 +338,19 @@ func selftest() {
 func uiSnaps(_ dir: String) {
     _ = NSApplication.shared
     try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-    Life.shared.load(count: 1, adultDays: Settings.shared.adultDays)
+    if flag("--demo") {
+        // made-up settings and fish, nothing of yours: for pictures to share
+        Settings.shared.useDemo(["environment": "driftwood", "surface": true, "rays": 1.0, "caustics": 0.8, "dayNight": true,
+                                 "nightLight": true, "sunrise": 7.5, "sunset": 21.75, "weather": false, "company": true])
+        let none = FileManager.default.temporaryDirectory.appendingPathComponent("no-fish-\(UUID().uuidString).json")
+        Life.shared.load(count: 2, adultDays: Settings.shared.adultDays, from: none)
+    } else {
+        Life.shared.load(count: 1, adultDays: Settings.shared.adultDays)
+    }
     let app = App()
     for page in SettingsPage.allCases {
         SettingsModel.shared.page = page
-        let w = NSWindow(contentRect: NSRect(x: -4000, y: 0, width: 860, height: 1400), styleMask: [.titled], backing: .buffered, defer: false)
+        let w = NSWindow(contentRect: NSRect(x: -4000, y: 0, width: 860, height: Double(arg("--height") ?? "1400") ?? 1400), styleMask: [.titled], backing: .buffered, defer: false)
         let v = NSHostingView(rootView: SettingsView(app: app))
         w.contentView = v
         w.orderFront(nil)
@@ -349,6 +384,11 @@ if let dir = arg("--ui") {
     path(Double(m) ?? 5)
 } else if let t = arg("--dump"), let i = args.firstIndex(of: "--dump"), i + 2 < args.count {
     dump(Time(t)!, args[i + 2])
+} else if let file = arg("--video") {
+    film(file, from: Double(arg("--from") ?? "0") ?? 0, seconds: Double(arg("--seconds") ?? "20") ?? 20, width: Int(arg("--width") ?? "1280") ?? 1280)
+} else if let file = arg("--gif") {
+    gif(file, from: Double(arg("--from") ?? "0") ?? 0, seconds: Double(arg("--seconds") ?? "8") ?? 8, fps: Int(arg("--fps") ?? "15") ?? 15,
+        width: Int(arg("--width") ?? "640") ?? 640)
 } else if let list = arg("--snap") {
     snap(Set(list.split(separator: ",").compactMap { Int($0) }), arg("--out") ?? "snaps", scale: Int(arg("--scale") ?? "1") ?? 1)
 } else if let file = arg("--icon") {

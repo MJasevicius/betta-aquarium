@@ -111,10 +111,8 @@ final class Card {
         panel.contentView = host
     }
 
-    func show(_ b: Betta, at mouse: NSPoint, settings: Settings, app: App) {
-        let now = CACurrentMediaTime()
-        if now - updated > 0.4 || !panel.isVisible {
-            updated = now
+    /// what a fish's card says now
+    static func info(for b: Betta, tank: Tank, settings: Settings) -> CardInfo {
             let life = Life.shared, p = b.profile
             var i = CardInfo()
             i.name = p.name
@@ -123,16 +121,36 @@ final class Card {
             i.mood = b.mind.mood.rawValue
             i.traits = p.personality.words.joined(separator: ", ").capitalizedFirst
             i.fed = "Fed \(Describe.ago(settings.lastFed))"
-            let r = b.howItTakesTheCursor(app.tank.surroundings)
+            let r = b.howItTakesTheCursor(tank.surroundings)
             i.cursor = (p.reaction ?? settings.mouse) == .dynamic ? Describe.trust(b.mind.memory.trust) : Describe.reaction(r)
             if settings.memory {
-                if let f = b.mind.favourite { i.favourite = "Likes \(Describe.place(f, in: app.tank))" }
+                if let f = b.mind.favourite { i.favourite = "Likes \(Describe.place(f, in: tank))" }
                 if !b.mind.memory.learned.isEmpty {
                     i.learned = "Expects food at " + b.mind.memory.learned.sorted().map(Describe.clock).joined(separator: " and ")
                 }
             }
             i.trust = b.mind.memory.trust
             i.colours = PALETTES[min(b.wearing, PALETTES.count - 1)].map { Color(red: Double($0.x), green: Double($0.y), blue: Double($0.z)) }
+            return i
+    }
+
+    /// a card as a picture, `scale` pixels to a point (for the README)
+    static func picture(_ info: CardInfo, scale: CGFloat = 2) -> CGImage? {
+        let v = NSHostingView(rootView: CardView(info: info))
+        v.frame = NSRect(origin: .zero, size: v.fittingSize)
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(v.bounds.width * scale), pixelsHigh: Int(v.bounds.height * scale),
+                                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+                                   bytesPerRow: 0, bitsPerPixel: 0)!
+        rep.size = v.bounds.size
+        v.cacheDisplay(in: v.bounds, to: rep)
+        return rep.cgImage
+    }
+
+    func show(_ b: Betta, at mouse: NSPoint, settings: Settings, app: App) {
+        let now = CACurrentMediaTime()
+        if now - updated > 0.4 || !panel.isVisible {
+            updated = now
+            let i = Card.info(for: b, tank: app.tank, settings: settings)
             if i != info { info = i; host.rootView = CardView(info: i) }
         }
         let size = host.fittingSize

@@ -359,6 +359,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             if FileManager.default.fileExists(atPath: dest.path) { try FileManager.default.removeItem(at: dest) }
             try FileManager.default.copyItem(at: saver, to: dest)
+            // downloaded with the app, it carries the mark of having come from the internet, and the
+            // screen saver host would refuse it: the app itself has already been allowed to run
+            for case let f as URL in FileManager.default.enumerator(at: dest, includingPropertiesForKeys: nil)?.allObjects ?? [] {
+                removexattr(f.path, "com.apple.quarantine", XATTR_NOFOLLOW)
+            }
+            removexattr(dest.path, "com.apple.quarantine", XATTR_NOFOLLOW)
         } catch {
             return "Couldn't install it: \(error.localizedDescription)"
         }

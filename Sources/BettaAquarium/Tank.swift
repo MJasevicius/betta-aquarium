@@ -135,8 +135,8 @@ final class Tank {
         // fish of its own, for the tools: one grown up, the rest new to the tank
         var r = SplitMix(seed, 11)
         setFish((0..<fish).map { i in
-            var p = FishProfile(name: "Fish \(i + 1)", seed: seed &+ UInt64(i) &* 0x9E37_79B9_7F4A_7C15, born: Date(),
-                                personality: i == 0 ? Personality() : .random(&r))
+            var p = FishProfile(name: ["Mango", "Pip", "Indigo", "Ember", "Nori", "Comet"][i % 6], seed: seed &+ UInt64(i) &* 0x9E37_79B9_7F4A_7C15, born: Date(),
+                                personality: i == 0 ? Personality(bold: 0.8, active: 0.55, greedy: 0.7, builder: 0.75, showOff: 0.5) : .random(&r))
             p.fixedAge = Settings.shared.adultDays + 1                  // grown up, and not old
             return p
         }, minds: [:])
