@@ -10,6 +10,8 @@ a card for each fish, seven environments, a night light, the weather where you a
 and a settings window where every value can be anything, with an ⓘ beside each setting saying what
 it does.
 
+![Two fish, an adult and a young one, in the driftwood tank](media/tank.gif)
+
 | The fish drawing itself | A juvenile, a young adult and an adult |
 |---|---|
 | ![The fish drawing itself](media/drawing.gif) | ![Three ages](media/ages.gif) |

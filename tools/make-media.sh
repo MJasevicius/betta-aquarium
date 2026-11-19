@@ -12,6 +12,9 @@ W=.build/media
 rm -rf $W media
 mkdir -p $W media dist
 
+# the main one: an adult and a young fish in the driftwood tank
+$B --gif media/tank.gif --from 18 --seconds 10 --fps 15 --width 760 --fish 2 --ages 90,9 --env driftwood --surface --company \
+    --rays 1 --caustics 0.6 --cols 270 --rows 150 --seed 4
 # the fish drawing itself in the cave; three fish of three ages
 $B --gif media/drawing.gif --seconds 8 --fps 15 --width 560 --cols 150 --rows 104 --env cave --caustics 0.6 --seed 3
 $B --gif media/ages.gif --from 14 --seconds 8 --fps 15 --width 640 --fish 3 --ages 1,8,90 --env driftwood --rows 150 \
